@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Apex Store | Premium Tech</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <header class="navbar">
+    <div class="logo">Apex<span>Store</span></div>
+    <div class="nav-actions">
+      <button class="orders-nav-btn" onclick="openCustomerOrdersModal()">📦 My Orders</button>
+      <button id="view-orders-btn" class="admin-orders-btn hidden" onclick="openAdminOrdersModal()">📋 All Orders</button>
+      <button id="add-item-btn" class="add-prod-btn hidden" onclick="openAdminModal()">+ Add Item</button>
+      <button id="admin-login-btn" class="admin-btn" onclick="openLoginModal()">Admin Login</button>
+      <button id="admin-logout-btn" class="logout-btn hidden" onclick="logoutAdmin()">Logout</button>
+      <div class="cart-btn" onclick="toggleCart()">🛒 Cart (<span id="cart-count">0</span>)</div>
+    </div>
+  </header>
+
+  <section class="hero">
+    <h2>Find Your Favorite Tech</h2>
+    <div class="search-box">
+      <input type="text" id="search-input" placeholder="Product search karein..." oninput="filterProducts()">
+    </div>
+    <div class="categories">
+      <button class="cat-btn active" onclick="setCategory('All', this)">All</button>
+      <button class="cat-btn" onclick="setCategory('Audio', this)">Audio</button>
+      <button class="cat-btn" onclick="setCategory('Wearables', this)">Wearables</button>
+      <button class="cat-btn" onclick="setCategory('Gaming', this)">Gaming</button>
+    </div>
+  </section>
+
+  <main class="container">
+    <h2 class="section-title" id="grid-title">All Products</h2>
+    <div class="product-grid" id="product-grid"></div>
+  </main>
+
+  <div class="modal" id="login-modal">
+    <div class="modal-content">
+      <div class="modal-header"><h3>Admin Login</h3><span class="close-btn" onclick="closeLoginModal()">&times;</span></div>
+      <form onsubmit="loginAdmin(event)">
+        <input type="text" id="admin-user" placeholder="Username (admin)" required>
+        <input type="password" id="admin-pass" placeholder="Password (password123)" required>
+        <button type="submit" class="submit-btn">Login as Admin</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="modal" id="admin-modal">
+    <div class="modal-content">
+      <div class="modal-header"><h3 id="modal-title">Add New Product</h3><span class="close-btn" onclick="closeAdminModal()">&times;</span></div>
+      <form id="add-product-form" onsubmit="saveProduct(event)">
+        <input type="hidden" id="p-id">
+        <input type="text" id="p-name" placeholder="Product Name" required>
+        <select id="p-category" required>
+          <option value="">Select Category</option>
+          <option value="Audio">Audio</option>
+          <option value="Wearables">Wearables</option>
+          <option value="Gaming">Gaming</option>
+          <option value="Others">Others</option>
+        </select>
+        <input type="number" id="p-price" placeholder="Original Price (₹)" required>
+        <input type="number" id="p-discount" placeholder="Discount (%)" required>
+        <input type="url" id="p-image" placeholder="Image URL" required>
+        <button type="submit" class="submit-btn" id="submit-btn-text">Save Product</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="modal" id="cart-modal">
+    <div class="modal-content">
+      <div class="modal-header"><h3>Your Shopping Cart</h3><span class="close-btn" onclick="toggleCart()">&times;</span></div>
+      <div id="cart-items" class="cart-items"></div>
+      <div class="cart-footer">
+        <h4>Total: ₹<span id="cart-total">0</span></h4>
+        <button class="checkout-btn" onclick="openCheckoutModal()">Proceed to Pay</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal" id="checkout-modal">
+    <div class="modal-content">
+      <div class="modal-header"><h3>Order & Payment Details</h3><span class="close-btn" onclick="closeCheckoutModal()">&times;</span></div>
+      <form onsubmit="placeOrder(event)">
+        <input type="text" id="cust-name" placeholder="Aapka Poora Naam" required>
+        <input type="tel" id="cust-phone" placeholder="Mobile Number (10 digits)" required>
+        <textarea id="cust-address" placeholder="Delivery Address" rows="3" required></textarea>
+        <label>Payment Method:</label>
+        <select id="pay-mode" required>
+          <option value="COD">Cash on Delivery (COD)</option>
+          <option value="UPI">UPI / QR Code</option>
+        </select>
+        <div id="upi-qr-box" style="display:none; text-align:center; background:#0f172a; padding:10px; border-radius:6px; margin:8px 0;">
+          <img src="https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=upi://pay?pa=9057430791@paytm&pn=ApexStore" alt="QR" style="border-radius:4px; background:white; padding:3px;">
+          <p style="font-size:0.75rem; color:#cbd5e1; margin-top:4px;">UPI ID: 9057430791@paytm</p>
+        </div>
+        <div style="display:flex; justify-content:space-between; margin:10px 0;">
+          <span>Payable:</span><strong style="color:#10b981;">₹<span id="pay-amount">0</span></strong>
+        </div>
+        <button type="submit" class="submit-btn">Confirm Order</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="modal" id="cust-orders-modal">
+    <div class="modal-content">
+      <div class="modal-header"><h3>Track My Orders</h3><span class="close-btn" onclick="closeCustomerOrdersModal()">&times;</span></div>
+      <div style="display:flex; gap:6px; margin-bottom:10px;">
+        <input type="tel" id="search-phone-input" placeholder="Enter Mobile Number" style="margin:0;">
+        <button onclick="fetchCustomerOrders()" style="background:#38bdf8; color:#0f172a; border:none; padding:8px 12px; border-radius:6px; font-weight:bold;">Search</button>
+      </div>
+      <div id="customer-orders-list" class="orders-container"></div>
+    </div>
+  </div>
+
+  <div class="modal" id="admin-orders-modal">
+    <div class="modal-content">
+      <div class="modal-header"><h3>📋 All Customer Orders</h3><span class="close-btn" onclick="closeAdminOrdersModal()">&times;</span></div>
+      <div id="admin-orders-list" class="orders-container"></div>
+    </div>
+  </div>
+
+  <script>
+    let cart = [], selectedCategory = 'All', loadedProductsList = [], isAdmin = false;
+
+    document.getElementById('pay-mode').addEventListener('change', function() {
+      document.getElementById('upi-qr-box').style.display = this.value === 'UPI' ? 'block' : 'none';
+    });
+
+    async function checkAdminStatus() {
+      try {
+        const res = await fetch('/api/check-admin');
+        const data = await res.json();
+        isAdmin = data.is_admin;
+      } catch(e) { isAdmin = false; }
+      updateAdminUI();
+      loadProducts();
+    }
+
+    function updateAdminUI() {
+      const addBtn = document.getElementById('add-item-btn');
+      const viewOrdersBtn = document.getElementById('view-orders-btn');
+      const loginBtn = document.getElementById('admin-login-btn');
+      const logoutBtn = document.getElementById('admin-logout-btn');
+
+      if (isAdmin) {
+        if(addBtn) addBtn.classList.remove('hidden');
+        if(viewOrdersBtn) viewOrdersBtn.classList.remove('hidden');
+        if(logoutBtn) logoutBtn.classList.remove('hidden');
+        if(loginBtn) loginBtn.classList.add('hidden');
+      } else {
+        if(addBtn) addBtn.classList.add('hidden');
+        if(viewOrdersBtn) viewOrdersBtn.classList.add('hidden');
+        if(logoutBtn) logoutBtn.classList.add('hidden');
+        if(loginBtn) loginBtn.classList.remove('hidden');
+      }
+    }
+
+    async function loadProducts() {
+      const search = document.getElementById('search-input').value;
+      const url = `/api/products?category=${encodeURIComponent(selectedCategory)}&search=${encodeURIComponent(search)}`;
+      try {
+        const res = await fetch(url);
+        loadedProductsList = await res.json();
+        const grid = document.getElementById('product-grid');
+        grid.innerHTML = '';
+        if (!loadedProductsList || loadedProductsList.length === 0) {
+          grid.innerHTML = '<p class="no-data">Koi product nahi mila!</p>';
+          return;
+        }
+        loadedProductsList.forEach(p => {
+          let adminButtons = isAdmin ? `<div class="card-actions"><button class="edit-btn" onclick="editProduct(${p.id})">✏️</button><button class="delete-btn" onclick="deleteProduct(${p.id})">&times;</button></div>` : '';
+          grid.innerHTML += `
+            <div class="card">
+              ${adminButtons}
+              <img src="${p.image}" alt="${p.name}">
+              <div class="card-body">
+                <span class="badge">${p.discountPercent}% OFF</span>
+                <span class="cat-tag">${p.category}</span>
+                <div class="rating-stars">★ 4.5</div>
+                <h3 class="product-title">${p.name}</h3>
+                <div class="price-box">
+                  <span class="final-price">₹${p.finalPrice}</span>
+                  <span class="original-price">₹${p.originalPrice}</span>
+                </div>
+              </div>
+              <button class="add-btn" onclick="addToCart('${p.name}', ${p.finalPrice})">Add to Cart</button>
+            </div>
+          `;
+        });
+      } catch (err) { console.error(err); }
+    }
+
+    async function loginAdmin(e) {
+      e.preventDefault();
+      const res = await fetch('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: document.getElementById('admin-user').value, password: document.getElementById('admin-pass').value })
+      });
+      if (res.ok) { alert("✅ Login Successful!"); closeLoginModal(); checkAdminStatus(); }
+      else { alert("❌ Wrong Password!"); }
+    }
+
+    async function logoutAdmin() {
+      await fetch('/api/logout', { method: 'POST' });
+      alert("Logged out!");
+      checkAdminStatus();
+    }
+
+    function setCategory(cat, btn) {
+      selectedCategory = cat;
+      document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('grid-title').innerText = cat === 'All' ? 'All Products' : cat + ' Products';
+      loadProducts();
+    }
+
+    function filterProducts() { loadProducts(); }
+
+    function editProduct(id) {
+      const p = loadedProductsList.find(prod => prod.id === id);
+      if (!p) return;
+      document.getElementById('p-id').value = p.id;
+      document.getElementById('p-name').value = p.name;
+      document.getElementById('p-category').value = p.category;
+      document.getElementById('p-price').value = p.originalPrice;
+      document.getElementById('p-discount').value = p.discountPercent;
+      document.getElementById('p-image').value = p.image;
+      document.getElementById('modal-title').innerText = "Edit Product";
+      document.getElementById('submit-btn-text').innerText = "Update Product";
+      openAdminModal();
+    }
+
+    async function saveProduct(e) {
+      e.preventDefault();
+      const id = document.getElementById('p-id').value;
+      const productData = {
+        id: id ? parseInt(id) : null,
+        name: document.getElementById('p-name').value,
+        category: document.getElementById('p-category').value,
+        originalPrice: parseFloat(document.getElementById('p-price').value),
+        discountPercent: parseFloat(document.getElementById('p-discount').value),
+        image: document.getElementById('p-image').value
+      };
+      const res = await fetch(id ? '/api/update-product' : '/api/add-product', {
+        method: id ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(productData)
+      });
+      if (res.ok) { closeAdminModal(); loadProducts(); }
+    }
+
+    async function deleteProduct(id) {
+      if(confirm("Delete karna chahte hain?")) {
+        const res = await fetch(`/api/delete-product/${id}`, { method: 'DELETE' });
+        if (res.ok) loadProducts();
+      }
+    }
+
+    function addToCart(name, price) {
+      cart.push({ name, price });
+      updateCartUI();
+    }
+
+    function removeFromCart(index) {
+      cart.splice(index, 1);
+      updateCartUI();
+    }
+
+    function updateCartUI() {
+      document.getElementById('cart-count').innerText = cart.length;
+      const cartItems = document.getElementById('cart-items');
+      cartItems.innerHTML = '';
+      if (cart.length === 0) {
+        cartItems.innerHTML = '<p class="no-data">Cart khali hai!</p>';
+        document.getElementById('cart-total').innerText = '0';
+        return;
+      }
+      let total = 0;
+      cart.forEach((item, index) => {
+        total += item.price;
+        cartItems.innerHTML += `<div class="cart-item"><div><span>${item.name}</span><br><span>₹${item.price}</span></div><button onclick="removeFromCart(${index})">🗑️</button></div>`;
+      });
+      document.getElementById('cart-total').innerText = total;
+    }
+
+    function toggleCart() { document.getElementById('cart-modal').style.display = document.getElementById('cart-modal').style.display === 'flex' ? 'none' : 'flex'; }
+    function openCheckoutModal() {
+      if (cart.length === 0) { alert("Cart khali hai!"); return; }
+      toggleCart();
+      document.getElementById('pay-amount').innerText = cart.reduce((sum, item) => sum + item.price, 0);
+      document.getElementById('checkout-modal').style.display = 'flex';
+    }
+    function closeCheckoutModal() { document.getElementById('checkout-modal').style.display = 'none'; }
+
+    async function placeOrder(e) {
+      e.preventDefault();
+      const name = document.getElementById('cust-name').value;
+      const phone = document.getElementById('cust-phone').value;
+      const address = document.getElementById('cust-address').value;
+      const payMode = document.getElementById('pay-mode').value;
+      const total = cart.reduce((sum, item) => sum + item.price, 0);
+
+      const res = await fetch('/api/place-order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, phone, address, payMode, items: cart, total })
+      });
+
+      if (res.ok) {
+        let itemsText = cart.map(i => `%0A- ${i.name} (₹${i.price})`).join('');
+        window.open(`https://wa.me/919057430791?text=🛍️ *NEW ORDER*%0A👤 ${name}%0A📞 ${phone}%0A🏠 ${address}%0A💳 ${payMode}%0A📦 Items:${itemsText}%0A💰 Total: ₹${total}`, '_blank');
+        cart = [];
+        updateCartUI();
+        closeCheckoutModal();
+        window.location.href = '/success';
+      }
+    }
+
+    function openCustomerOrdersModal() { document.getElementById('cust-orders-modal').style.display = 'flex'; }
+    function closeCustomerOrdersModal() { document.getElementById('cust-orders-modal').style.display = 'none'; }
+
+    async function fetchCustomerOrders() {
+      const phone = document.getElementById('search-phone-input').value;
+      if (!phone) { alert("Number dalein!"); return; }
+      const res = await fetch(`/api/customer/orders?phone=${encodeURIComponent(phone)}`);
+      const orders = await res.json();
+      const list = document.getElementById('customer-orders-list');
+      list.innerHTML = orders.length === 0 ? '<p class="no-data">Koi order nahi mila.</p>' : '';
+      orders.forEach(o => {
+        let itemsHtml = o.items.map(i => `<li>${i.name} - ₹${i.price}</li>`).join('');
+        list.innerHTML += `<div class="order-card"><strong>Order #${o.id}</strong><p>${o.date}</p><ul>${itemsHtml}</ul><p>Total: ₹${o.total}</p></div>`;
+      });
+    }
+
+    async function openAdminOrdersModal() {
+      document.getElementById('admin-orders-modal').style.display = 'flex';
+      const res = await fetch('/api/admin/orders');
+      const orders = await res.json();
+      const list = document.getElementById('admin-orders-list');
+      list.innerHTML = orders.length === 0 ? '<p class="no-data">Koi order nahi hai.</p>' : '';
+      orders.forEach(o => {
+        let itemsHtml = o.items.map(i => `<li>${i.name} - ₹${i.price}</li>`).join('');
+        list.innerHTML += `<div class="order-card"><strong>#${o.id} - ${o.name}</strong><p>${o.phone}</p><ul>${itemsHtml}</ul><p>Total: ₹${o.total}</p></div>`;
+      });
+    }
+
+    function closeAdminOrdersModal() { document.getElementById('admin-orders-modal').style.display = 'none'; }
+    function openAdminModal() { document.getElementById('admin-modal').style.display = 'flex'; }
+    function closeAdminModal() { document.getElementById('admin-modal').style.display = 'none'; }
+    function openLoginModal() { document.getElementById('login-modal').style.display = 'flex'; }
+    function closeLoginModal() { document.getElementById('login-modal').style.display = 'none'; }
+
+    checkAdminStatus();
+  </script>
+</body>
+          </html>
+            
