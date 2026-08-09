@@ -213,6 +213,17 @@ def update_order_status():
     conn.commit()
     conn.close()
     return jsonify({"status": "updated"})
+    
+@app.route('/api/admin/delete-order/<int:order_id>', methods=['DELETE'])
+def delete_order(order_id):
+    if not session.get('is_admin'):
+        return jsonify({"error": "Unauthorized"}), 403
+    conn = sqlite3.connect(os.path.join(base_dir, 'database.db'))
+    cursor = conn.cursor()
+    cursor.execute('DELETE FROM orders WHERE id = ?', (order_id,))
+    conn.commit()
+    conn.close()
+    return jsonify({"status": "success"})
 
 @app.route('/api/customer/orders', methods=['GET'])
 def get_customer_orders():
