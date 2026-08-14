@@ -3,6 +3,7 @@ import sqlite3
 import json
 from datetime import datetime
 from flask import Flask, render_template, request, jsonify, session
+from werkzeug.utils import secure_filename
 
 base_dir = os.path.abspath(os.path.dirname(__file__))
 
@@ -16,12 +17,16 @@ app.secret_key = 'fashion_mart_secret_key_999'
 ADMIN_USERNAME = "Rohankumarmeena"
 ADMIN_PASSWORD = "Ganesh1234me@711451"
 
+# Upload folder for camera/gallery photos
+UPLOAD_FOLDER = os.path.join(base_dir, 'static/uploads')
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+
 def init_db():
     db_path = os.path.join(base_dir, 'fashion_mart.db')
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
     
-    # Products Table (Multiple images support ke liye JSON ya text)
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS products (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -34,7 +39,6 @@ def init_db():
         )
     ''')
 
-    # Orders Table
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS orders (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -48,7 +52,6 @@ def init_db():
         )
     ''')
 
-    # Sample Clothing Products agar table khali hai
     cursor.execute('SELECT COUNT(*) FROM products')
     if cursor.fetchone()[0] == 0:
         sample_products = [
@@ -148,34 +151,7 @@ def get_products():
         })
     return jsonify(products_list)
 
-@app.route('/api/add-product', methods=['POST'])
-def add_product():
-    if not session.get('is_admin'):
-        return jsonify({"error": "Unauthorized"}), 403
-    data = request.json
-    conn = sqlite3.connect(os.path.join(base_dir, 'fashion_mart.db'))
-    cursor = conn.cursor()
-    cursor.execute('''
-        INSERT INTO products (name, category, price, discount_price, images_json, description)
-        VALUES (?, ?, ?, ?, ?, ?)
-    ''', (
-        data['name'], 
-        data['category'], 
-        float(data['price']), 
-        float(data['discountPrice']), 
-        json.dumps(data['images']), 
-        data['description']
-    ))
-    conn.commit()
-    conn.close()
-    return jsonify({"status": "success"})
-
-from werkzeug.utils import secure_filename
-
-UPLOAD_FOLDER = os.path.join(base_dir, 'static/uploads')
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-
+# Single Unified Add Product Route (Camera/Gallery File Upload Support)
 @app.route('/api/add-product', methods=['POST'])
 def add_product():
     if not session.get('is_admin'):
@@ -210,7 +186,49 @@ def add_product():
     conn.commit()
     conn.close()
     return jsonify({"status": "success"})
+
+@app.route('/api/place-order', methods=['POST'])
+def place_order():
+    data = request.json
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    conn = sqlite3.connect(os.path.join(base_dir, 'fashion_mart.db'))
+    cursor = conn.cursor()
+    cursor.execute('''
+        INSERT INTO orders (customer_name, customer_phone, customer_address, items_json, total_amount, order_date)
+        VALUES (?, ?, ?, ?, ?, ?)
+    ''', (
+        data['name'], 
+        data['phone'], 
+        data['address'], 
+        json.dumps(data['items']), 
+        float(data['total']), 
+        now
+    ))
+    conn.commit()
+    conn.close()
+    return jsonify({"status": "success"})
+
+@app.route('/api/customer/orders', methods=['GET'])
+def get_customer_orders():
+    phone = request.args.get('phone', '')
+    if not phone:
+        return jsonify([])
+    conn = sqlite3.connect(os.path.join(base_dir, 'fashion_mart.db'))
+    cursor = conn.cursor()
+    cursor.execute('SELECT id, items_json, total_amount, order_date, status FROM orders WHERE customer_phone = ? ORDER BY id DESC', (phone,))
+    rows = cursor.fetchall()
+    conn.close()
     
+    orders_list = []
+    for row in rows:
+        orders_list.append({
+            "id": row[0],
+            "items": json.loads(row[1]),
+            "total": row[2],
+            "date": row[3],
+            "status": row[4]
+        })
+    return jsonify(orders_list)
 
 @app.route('/api/customer/cancel-order/<int:order_id>', methods=['PUT'])
 def cancel_order(order_id):
@@ -227,7 +245,7 @@ def get_admin_orders():
         return jsonify({"error": "Unauthorized"}), 403
     conn = sqlite3.connect(os.path.join(base_dir, 'fashion_mart.db'))
     cursor = conn.cursor()
-    cursor.execute('SELECT id, customer_name, customer_phone, customer_address, items_json, total_amount, order_date, status FROM orders ORDER BY id DESC')
+    cursor.execute('SELECT id, customer_name, customer_phone, customer_address, items_json, total_amount, order_date, statuC')
     rows = cursor.fetchall()
     conn.close()
     
@@ -267,6 +285,7 @@ def delete_order(order_id):
     conn.commit()
     conn.close()
     return jsonify({"status": "success"})
+
 @app.route('/api/admin/delete-product/<int:product_id>', methods=['DELETE'])
 def delete_product(product_id):
     if not session.get('is_admin'):
