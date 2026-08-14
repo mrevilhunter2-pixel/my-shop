@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fashion Mart - Online Shopping for Clothing</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <!-- Flipkart / Amazon style Top Header -->
+  <header class="navbar">
+    <div class="logo">Fashion<span>Mart</span> 🛍️</div>
+    <div class="search-bar">
+      <input type="text" id="search-input" placeholder="Search for products, brands and more" oninput="filterProducts()">
+    </div>
+    <div class="nav-links">
+      <a href="/orders-page">📦 Track Orders</a>
+      <button id="admin-nav-btn" onclick="openLoginModal()">Admin Login</button>
+      <button id="admin-dash-btn" class="hidden" onclick="window.location.href='/admin-dashboard'">Dashboard</button>
+      <div class="cart-icon" onclick="toggleCart()">🛒 Cart <span id="cart-count">0</span></div>
+    </div>
+  </header>
+
+  <!-- Categories Bar -->
+  <div class="categories-bar">
+    <button class="cat-btn active" onclick="setCategory('All', this)">All Fashion</button>
+    <button class="cat-btn" onclick="setCategory('Men', this)">Men Clothing</button>
+    <button class="cat-btn" onclick="setCategory('Women', this)">Women Clothing</button>
+    <button class="cat-btn" onclick="setCategory('Kids', this)">Kids Wear</button>
+  </div>
+
+  <!-- Banner -->
+  <section class="banner">
+    <h1>Biggest Fashion Sale! Up to 70% OFF</h1>
+  </section>
+
+  <!-- Product Listing Grid -->
+  <main class="main-container">
+    <div id="product-grid" class="product-grid"></div>
+  </main>
+
+  <!-- Product Detail Modal (Flipkart Style Multi-Angle View) -->
+  <div id="product-detail-modal" class="modal hidden">
+    <div class="modal-content product-detail-content">
+      <span class="close" onclick="closeProductModal()">✕</span>
+      <div class="detail-container">
+        <div class="image-gallery">
+          <img id="main-preview-img" src="" alt="Product">
+          <div id="thumbnail-list" class="thumbnail-list"></div>
+        </div>
+        <div class="product-info-box">
+          <h2 id="det-title"></h2>
+          <p class="det-price">₹<span id="det-discount-price"></span> <span id="det-original-price"></span></p>
+          <p id="det-desc" class="det-desc"></p>
+          <button class="add-to-cart-big-btn" onclick="addCurrentProductToCart()">Add to Cart (Meesho Style)</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Meesho Style Cart Drawer -->
+  <div id="cart-drawer" class="cart-drawer hidden">
+    <div class="cart-header">
+      <h3>My Cart</h3>
+      <button onclick="toggleCart()">✕</button>
+    </div>
+    <div id="cart-items" class="cart-items-container"></div>
+    <div class="cart-footer">
+      <h3>Total Amount: ₹<span id="cart-total">0</span></h3>
+      <button class="checkout-btn" onclick="openCheckoutModal()">Proceed to Checkout</button>
+    </div>
+  </div>
+
+  <!-- Checkout Modal -->
+  <div id="checkout-modal" class="modal hidden">
+    <div class="modal-content">
+      <span class="close" onclick="closeCheckoutModal()">✕</span>
+      <h2>Delivery Address Details</h2>
+      <form onsubmit="placeOrder(event)">
+        <div class="form-group">
+          <label>Full Name</label>
+          <input type="text" id="cust-name" required placeholder="Enter your name">
+        </div>
+        <div class="form-group">
+          <label>Phone Number (For Tracking)</label>
+          <input type="tel" id="cust-phone" required placeholder="10-digit mobile number">
+        </div>
+        <div class="form-group">
+          <label>Delivery Address</label>
+          <textarea id="cust-address" required placeholder="House no, street, landmark, city, pincode"></textarea>
+        </div>
+        <button type="submit" class="submit-order-btn">Place Order (COD)</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Admin Login Modal -->
+  <div id="login-modal" class="modal hidden">
+    <div class="modal-content">
+      <span class="close" onclick="closeLoginModal()">✕</span>
+      <h2>Admin Login</h2>
+      <form onsubmit="adminLogin(event)">
+        <div class="form-group">
+          <label>Username</label>
+          <input type="text" id="admin-user" required>
+        </div>
+        <div class="form-group">
+          <label>Password</label>
+          <input type="password" id="admin-pass" required>
+        </div>
+        <button type="submit" class="submit-order-btn">Login</button>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    let products = [];
+    let cart = [];
+    let currentCategory = 'All';
+    let selectedProductForDetail = null;
+
+    document.addEventListener("DOMContentLoaded", () => {
+      fetchProducts();
+      checkAdmin();
+    });
+
+    function checkAdmin() {
+      fetch('/api/check-admin').then(res => res.json()).then(data => {
+        if(data.is_admin) {
+          document.getElementById('admin-nav-btn').classList.add('hidden');
+          document.getElementById('admin-dash-btn').classList.remove('hidden');
+        }
+      });
+    }
+
+    function fetchProducts() {
+      const search = document.getElementById('search-input').value;
+      fetch(`/api/products?category=${currentCategory}&search=${search}`)
+      .then(res => res.json())
+      .then(data => {
+        products = data;
+        renderProducts();
+      });
+    }
+
+    function renderProducts() {
+      const grid = document.getElementById('product-grid');
+      grid.innerHTML = '';
+      if(products.length === 0) {
+        grid.innerHTML = '<p>No clothing products found.</p>';
+        return;
+      }
+      products.forEach(p => {
+        grid.innerHTML += `
+          <div class="product-card" onclick="openProductDetail(${p.id})">
+            <img src="${p.images[0]}" alt="${p.name}">
+            <div class="card-body">
+              <h4>${p.name}</h4>
+              <p class="card-price">₹${p.discountPrice} <span class="old-price">₹${p.price}</span></p>
+            </div>
+          </div>
+        `;
+      });
+    }
+
+    function setCategory(cat, btn) {
+      currentCategory = cat;
+      document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      fetchProducts();
+    }
+
+    function filterProducts() {
+      fetchProducts();
+    }
+
+    function openProductDetail(id) {
+      selectedProductForDetail = products.find(p => p.id === id);
+      if(!selectedProductForDetail) return;
+
+      document.getElementById('det-title').innerText = selectedProductForDetail.name;
+      document.getElementById('det-discount-price').innerText = selectedProductForDetail.discountPrice;
+      document.getElementById('det-original-price').innerText = `₹${selectedProductForDetail.price}`;
+      document.getElementById('det-desc').innerText = selectedProductForDetail.description;
+
+      const mainImg = document.getElementById('main-preview-img');
+      const thumbList = document.getElementById('thumbnail-list');
+      mainImg.src = selectedProductForDetail.images[0];
+      thumbList.innerHTML = '';
+
+      selectedProductForDetail.images.forEach(imgUrl => {
+        thumbList.innerHTML += `<img src="${imgUrl}" onclick="document.getElementById('main-preview-img').src='${imgUrl}'" class="thumb-img">`;
+      });
+
+      document.getElementById('product-detail-modal').classList.remove('hidden');
+    }
+
+    function closeProductModal() {
+      document.getElementById('product-detail-modal').classList.add('hidden');
+    }
+
+    function addCurrentProductToCart() {
+      if(!selectedProductForDetail) return;
+      const exist = cart.find(i => i.id === selectedProductForDetail.id);
+      if(exist) {
+        exist.qty += 1;
+      } else {
+        cart.push({...selectedProductForDetail, qty: 1});
+      }
+      updateCartUI();
+      closeProductModal();
+      alert("Added to cart successfully! (Meesho style)");
+      toggleCart();
+    }
+
+    function toggleCart() {
+      document.getElementById('cart-drawer').classList.toggle('hidden');
+    }
+
+    function updateCartUI() {
+      const countEl = document.getElementById('cart-count');
+      const itemsEl = document.getElementById('cart-items');
+      const totalEl = document.getElementById('cart-total');
+
+      let count = 0;
+      let total = 0;
+      itemsEl.innerHTML = '';
+
+      cart.forEach((item, index) => {
+        count += item.qty;
+        total += item.discountPrice * item.qty;
+        itemsEl.innerHTML += `
+          <div class="cart-item">
+            <img src="${item.images[0]}" width="50">
+            <div>
+              <h5>${item.name}</h5>
+              <p>₹${item.discountPrice} x ${item.qty}</p>
+            </div>
+            <button onclick="removeFromCart(${index})" style="color:red; border:none; background:none;">❌</button>
+          </div>
+        `;
+      });
+      countEl.innerText = count;
+      totalEl.innerText = total;
+    }
+
+    function removeFromCart(index) {
+      cart.splice(index, 1);
+      updateCartUI();
+    }
+
+    function openCheckoutModal() {
+      if(cart.length === 0) {
+        alert("Cart is empty!");
+        return;
+      }
+      toggleCart();
+      document.getElementById('checkout-modal').classList.remove('hidden');
+    }
+
+    function closeCheckoutModal() {
+      document.getElementById('checkout-modal').classList.add('hidden');
+    }
+
+    function placeOrder(e) {
+      e.preventDefault();
+      const name = document.getElementById('cust-name').value;
+      const phone = document.getElementById('cust-phone').value;
+      const address = document.getElementById('cust-address').value;
+      const total = cart.reduce((sum, item) => sum + (item.discountPrice * item.qty), 0);
+
+      fetch('/api/place-order', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ name, phone, address, items: cart, total })
+      }).then(res => res.json()).then(data => {
+        if(data.status === 'success') {
+          alert("Order Placed Successfully!");
+          cart = [];
+          updateCartUI();
+          closeCheckoutModal();
+          window.location.href = '/orders-page';
+        }
+      });
+    }
+
+    function openLoginModal() { document.getElementById('login-modal').classList.remove('hidden'); }
+    function closeLoginModal() { document.getElementById('login-modal').classList.add('hidden'); }
+
+    function adminLogin(e) {
+      e.preventDefault();
+      const username = document.getElementById('admin-user').value;
+      const password = document.getElementById('admin-pass').value;
+
+      fetch('/api/login', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ username, password })
+      }).then(res => res.json()).then(data => {
+        if(data.status === 'success') {
+          alert("Admin Login Successful!");
+          window.location.href = '/admin-dashboard';
+        } else {
+          alert("Invalid Credentials!");
+        }
+      });
+    }
+  </script>
+</body>
+  </html>
+  
