@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Track Your Orders - Fashion Mart</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <header class="navbar">
+    <div class="logo" onclick="window.location.href='/'" style="cursor:pointer;">Fashion<span>Mart</span> 🛍️</div>
+  </header>
+
+  <div class="container" style="padding: 30px; max-width: 600px; margin: auto;">
+    <h2>Track Your Clothing Orders</h2>
+    <div class="form-group" style="margin-top: 15px;">
+      <input type="tel" id="search-phone" placeholder="Enter your 10-digit mobile number" style="width:100%; padding:10px;">
+      <button onclick="searchOrders()" class="submit-order-btn" style="margin-top: 10px;">Find Orders</button>
+    </div>
+    <div id="user-orders-list" style="margin-top: 20px;"></div>
+  </div>
+
+  <script>
+    function searchOrders() {
+      const phone = document.getElementById('search-phone').value;
+      if(!phone) {
+        alert("Please enter phone number");
+        return;
+      }
+      fetch(`/api/customer/orders?phone=${phone}`)
+      .then(res => res.json())
+      .then(orders => {
+        const container = document.getElementById('user-orders-list');
+        container.innerHTML = '';
+        if(orders.length === 0) {
+          container.innerHTML = '<p>No orders found for this number.</p>';
+          return;
+        }
+        orders.forEach(o => {
+          let itemsText = o.items.map(i => `${i.name} (x${i.qty})`).join(', ');
+          let cancelBtn = o.status === 'Order Placed' ? `<button onclick="cancelOrder(${o.id})" style="background:red; color:white; border:none; padding:5px 10px; cursor:pointer;">Cancel Order</button>` : '';
+          container.innerHTML += `
+            <div class="order-box" style="border:1px solid #ddd; padding:15px; margin-bottom:10px; border-radius:5px;">
+              <p><strong>Order ID:</strong> #${o.id}</p>
+              <p><strong>Items:</strong> ${itemsText}</p>
+              <p><strong>Total Amount:</strong> ₹${o.total}</p>
+              <p><strong>Date:</strong> ${o.date}</p>
+              <p><strong>Status:</strong> <span style="color:green; font-weight:bold;">${o.status}</span></p>
+              ${cancelBtn}
+            </div>
+          `;
+        });
+      });
+    }
+
+    function cancelOrder(orderId) {
+      if(confirm("Are you sure you want to cancel this order?")) {
+        fetch(`/api/customer/cancel-order/${orderId}`, {method: 'PUT'})
+        .then(res => res.json()).then(data => {
+          alert("Order Cancelled");
+          searchOrders();
+        });
+      }
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Dashboard - Fashion Mart</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <header class="navbar">
+    <div class="logo">Admin Dashboard</div>
+    <div class="nav-links">
+      <button onclick="window.location.href='/'">Home</button>
+      <button onclick="logoutAdmin()" style="background:red; color:white;">Logout</button>
+    </div>
+  </header>
+
+  <div class="container" style="padding: 20px;">
+    <h2>Add New Clothing Product</h2>
+    <form onsubmit="addNewProduct(event)" style="background:#f9f9f9; padding:15px; border-radius:5px; margin-bottom:30px;">
+      <div class="form-group"><input type="text" id="p-name" placeholder="Product Name" required style="width:100%; padding:8px;"></div>
+      <div class="form-group" style="margin-top:10px;">
+        <select id="p-cat" style="width:100%; padding:8px;">
+          <option value="Men">Men</option>
+          <option value="Women">Women</option>
+          <option value="Kids">Kids</option>
+        </select>
+      </div>
+      <div class="form-group" style="margin-top:10px;"><input type="number" id="p-price" placeholder="Original Price" required style="width:100%; padding:8px;"></div>
+      <div class="form-group" style="margin-top:10px;"><input type="number" id="p-disc" placeholder="Discount Price" required style="width:100%; padding:8px;"></div>
+      <div class="form-group" style="margin-top:10px;"><input type="text" id="p-img1" placeholder="Image URL 1 (Front Angle)" required style="width:100%; padding:8px;"></div>
+      <div class="form-group" style="margin-top:10px;"><input type="text" id="p-img2" placeholder="Image URL 2 (Back/Side Angle)" style="width:100%; padding:8px;"></div>
+      <div class="form-group" style="margin-top:10px;"><textarea id="p-desc" placeholder="Product Description" style="width:100%; padding:8px;"></textarea></div>
+      <button type="submit" class="submit-order-btn" style="margin-top:10px;">Add Product</button>
+    </form>
+
+    <h2>All Customer Orders</h2>
+    <div id="admin-orders-container"></div>
+  </div>
+
+  <script>
+    document.addEventListener("DOMContentLoaded", () => {
+      loadAdminOrders();
+    });
+
+    function loadAdminOrders() {
+      fetch('/api/admin/orders')
+      .then(res => res.json())
+      .then(orders => {
+        const container = document.getElementById('admin-orders-container');
+        container.innerHTML = '';
+        if(orders.length === 0) {
+          container.innerHTML = '<p>No orders received yet.</p>';
+          return;
+        }
+        orders.forEach(o => {
+          let itemsText = o.items.map(i => `${i.name} (x${i.qty})`).join(', ');
+          container.innerHTML += `
+            <div style="border:1px solid #ccc; padding:15px; margin-bottom:10px; border-radius:5px; background:#fff;">
+              <p><strong>Order ID:</strong> #${o.id} | <strong>Date:</strong> ${o.date}</p>
+              <p><strong>Customer:</strong> ${o.name} (${o.phone})</p>
+              <p><strong>Address:</strong> ${o.address}</p>
+              <p><strong>Items:</strong> ${itemsText}</p>
+              <p><strong>Total:</strong> ₹${o.total}</p>
+              <p><strong>Update Status:</strong> 
+                <select onchange="updateStatus(${o.id}, this.value)">
+                  <option value="Order Placed" ${o.status==='Order Placed'?'selected':''}>Order Placed</option>
+                  <option value="Shipped" ${o.status==='Shipped'?'selected':''}>Shipped</option>
+                  <option value="Delivered" ${o.status==='Delivered'?'selected':''}>Delivered</option>
+                  <option value="Cancelled" ${o.status==='Cancelled'?'selected':''}>Cancelled</option>
+                </select>
+                <button onclick="deleteOrder(${o.id})" style="background:red; color:white; border:none; padding:5px 10px; margin-left:10px; cursor:pointer;">Delete Order</button>
+              </p>
+            </div>
+          `;
+        });
+      });
+    }
+
+    function updateStatus(orderId, status) {
+      fetch('/api/admin/update-status', {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ orderId, status })
+      }).then(() => alert("Status updated successfully!"));
+    }
+
+    function deleteOrder(orderId) {
+      if(confirm("Are you sure you want to delete this order?")) {
+        fetch(`/api/admin/delete-order/${orderId}`, {method: 'DELETE'})
+        .then(() => {
+          alert("Order Deleted");
+          loadAdminOrders();
+        });
+      }
+    }
+
+    function addNewProduct(e) {
+      e.preventDefault();
+      const name = document.getElementById('p-name').value;
+      const category = document.getElementById('p-cat').value;
+      const price = document.getElementById('p-price').value;
+      const discountPrice = document.getElementById('p-disc').value;
+      const desc = document.getElementById('p-desc').value;
+      
+      let images = [document.getElementById('p-img1').value];
+      let img2 = document.getElementById('p-img2').value;
+      if(img2) images.push(img2);
+
+      fetch('/api/add-product', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ name, category, price, discountPrice, images, description: desc })
+      }).then(res => res.json()).then(data => {
+        if(data.status === 'success') {
+          alert("Product added successfully!");
+          location.reload();
+        }
+      });
+    }
+
+    function logoutAdmin() {
+      fetch('/api/logout', {method: 'POST'}).then(() => window.location.href = '/');
+    }
+  </script>
+</body>
+</html>
