@@ -151,84 +151,48 @@ def get_products():
         })
     return jsonify(products_list)
 
-# Single Unified Add Product Route (Camera/Gallery File Upload Support)
 @app.route('/api/add-product', methods=['POST'])
 def add_product():
     if not session.get('is_admin'):
         return jsonify({"error": "Unauthorized"}), 403
     
-    name = request.form.get('name')
-    category = request.form.get('category')
-    price = float(request.form.get('price'))
-    discount_price = float(request.form.get('discountPrice'))
-    description = request.form.get('description', '')
-    
-    images = []
-    for key in ['img1', 'img2']:
-        if key in request.files:
-            file = request.files[key]
-            if file and file.filename != '':
-                filename = secure_filename(file.filename)
-                filename = f"{datetime.now().strftime('%Y%m%d%H%M%S')}_{filename}"
-                file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-                file.save(file_path)
-                images.append(f"/static/uploads/{filename}")
-    
-    if not images:
-        images.append("https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?w=500")
+    try:
+        name = request.form.get('name')
+        category = request.form.get('category')
+        price = float(request.form.get('price'))
+        discount_price = float(request.form.get('discountPrice'))
+        description = request.form.get('description', '')
+        
+        images = []
+        for key in ['img1', 'img2']:
+            if key in request.files:
+                file = request.files[key]
+                if file and file.filename != '':
+                    # File save karne se pehle print karke check karein
+                    filename = secure_filename(file.filename)
+                    filename = f"{datetime.now().strftime('%Y%m%d%H%M%S')}_{filename}"
+                    file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+                    print(f"Saving file to: {file_path}") # Yeh log Render console me dikhega
+                    file.save(file_path)
+                    images.append(f"/static/uploads/{filename}")
+        
+        if not images:
+            images.append("https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?w=500")
 
-    conn = sqlite3.connect(os.path.join(base_dir, 'fashion_mart.db'))
-    cursor = conn.cursor()
-    cursor.execute('''
-        INSERT INTO products (name, category, price, discount_price, images_json, description)
-        VALUES (?, ?, ?, ?, ?, ?)
-    ''', (name, category, price, discount_price, json.dumps(images), description))
-    conn.commit()
-    conn.close()
-    return jsonify({"status": "success"})
-
-@app.route('/api/place-order', methods=['POST'])
-def place_order():
-    data = request.json
-    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    conn = sqlite3.connect(os.path.join(base_dir, 'fashion_mart.db'))
-    cursor = conn.cursor()
-    cursor.execute('''
-        INSERT INTO orders (customer_name, customer_phone, customer_address, items_json, total_amount, order_date)
-        VALUES (?, ?, ?, ?, ?, ?)
-    ''', (
-        data['name'], 
-        data['phone'], 
-        data['address'], 
-        json.dumps(data['items']), 
-        float(data['total']), 
-        now
-    ))
-    conn.commit()
-    conn.close()
-    return jsonify({"status": "success"})
-
-@app.route('/api/customer/orders', methods=['GET'])
-def get_customer_orders():
-    phone = request.args.get('phone', '')
-    if not phone:
-        return jsonify([])
-    conn = sqlite3.connect(os.path.join(base_dir, 'fashion_mart.db'))
-    cursor = conn.cursor()
-    cursor.execute('SELECT id, items_json, total_amount, order_date, status FROM orders WHERE customer_phone = ? ORDER BY id DESC', (phone,))
-    rows = cursor.fetchall()
-    conn.close()
+        conn = sqlite3.connect(os.path.join(base_dir, 'fashion_mart.db'))
+        cursor = conn.cursor()
+        cursor.execute('''
+            INSERT INTO products (name, category, price, discount_price, images_json, description)
+            VALUES (?, ?, ?, ?, ?, ?)
+        ''', (name, category, price, discount_price, json.dumps(images), description))
+        conn.commit()
+        conn.close()
+        return jsonify({"status": "success"})
     
-    orders_list = []
-    for row in rows:
-        orders_list.append({
-            "id": row[0],
-            "items": json.loads(row[1]),
-            "total": row[2],
-            "date": row[3],
-            "status": row[4]
-        })
-    return jsonify(orders_list)
+    except Exception as e:
+        print(f"Error saving product: {e}") # Yeh error Render logs me dikhega
+        return jsonify({"status": "error", "message": str(e)}), 500
+    
 
 @app.route('/api/customer/cancel-order/<int:order_id>', methods=['PUT'])
 def cancel_order(order_id):
