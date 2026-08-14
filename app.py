@@ -267,6 +267,16 @@ def delete_order(order_id):
     conn.commit()
     conn.close()
     return jsonify({"status": "success"})
+@app.route('/api/admin/delete-product/<int:product_id>', methods=['DELETE'])
+def delete_product(product_id):
+    if not session.get('is_admin'):
+        return jsonify({"error": "Unauthorized"}), 403
+    conn = sqlite3.connect(os.path.join(base_dir, 'fashion_mart.db'))
+    cursor = conn.cursor()
+    cursor.execute('DELETE FROM products WHERE id = ?', (product_id,))
+    conn.commit()
+    conn.close()
+    return jsonify({"status": "success"})
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
