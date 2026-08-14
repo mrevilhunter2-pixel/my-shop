@@ -13,8 +13,8 @@ app = Flask(
 )
 
 app.secret_key = 'fashion_mart_secret_key_999'
-ADMIN_USERNAME = "fashionmart"
-ADMIN_PASSWORD = "adminpassword123"
+ADMIN_USERNAME = "Rohankumarmeena"
+ADMIN_PASSWORD = "Ganesh1234me@711451"
 
 def init_db():
     db_path = os.path.join(base_dir, 'fashion_mart.db')
