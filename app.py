@@ -170,48 +170,47 @@ def add_product():
     conn.close()
     return jsonify({"status": "success"})
 
-@app.route('/api/place-order', methods=['POST'])
-def place_order():
-    data = request.json
-    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+from werkzeug.utils import secure_filename
+
+UPLOAD_FOLDER = os.path.join(base_dir, 'static/uploads')
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+
+@app.route('/api/add-product', methods=['POST'])
+def add_product():
+    if not session.get('is_admin'):
+        return jsonify({"error": "Unauthorized"}), 403
+    
+    name = request.form.get('name')
+    category = request.form.get('category')
+    price = float(request.form.get('price'))
+    discount_price = float(request.form.get('discountPrice'))
+    description = request.form.get('description', '')
+    
+    images = []
+    for key in ['img1', 'img2']:
+        if key in request.files:
+            file = request.files[key]
+            if file and file.filename != '':
+                filename = secure_filename(file.filename)
+                filename = f"{datetime.now().strftime('%Y%m%d%H%M%S')}_{filename}"
+                file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+                file.save(file_path)
+                images.append(f"/static/uploads/{filename}")
+    
+    if not images:
+        images.append("https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?w=500")
+
     conn = sqlite3.connect(os.path.join(base_dir, 'fashion_mart.db'))
     cursor = conn.cursor()
     cursor.execute('''
-        INSERT INTO orders (customer_name, customer_phone, customer_address, items_json, total_amount, order_date)
+        INSERT INTO products (name, category, price, discount_price, images_json, description)
         VALUES (?, ?, ?, ?, ?, ?)
-    ''', (
-        data['name'], 
-        data['phone'], 
-        data['address'], 
-        json.dumps(data['items']), 
-        float(data['total']), 
-        now
-    ))
+    ''', (name, category, price, discount_price, json.dumps(images), description))
     conn.commit()
     conn.close()
     return jsonify({"status": "success"})
-
-@app.route('/api/customer/orders', methods=['GET'])
-def get_customer_orders():
-    phone = request.args.get('phone', '')
-    if not phone:
-        return jsonify([])
-    conn = sqlite3.connect(os.path.join(base_dir, 'fashion_mart.db'))
-    cursor = conn.cursor()
-    cursor.execute('SELECT id, items_json, total_amount, order_date, status FROM orders WHERE customer_phone = ? ORDER BY id DESC', (phone,))
-    rows = cursor.fetchall()
-    conn.close()
     
-    orders_list = []
-    for row in rows:
-        orders_list.append({
-            "id": row[0],
-            "items": json.loads(row[1]),
-            "total": row[2],
-            "date": row[3],
-            "status": row[4]
-        })
-    return jsonify(orders_list)
 
 @app.route('/api/customer/cancel-order/<int:order_id>', methods=['PUT'])
 def cancel_order(order_id):
