@@ -28,8 +28,16 @@
       </div>
       <div class="form-group" style="margin-top:10px;"><input type="number" id="p-price" placeholder="Original Price" required style="width:100%; padding:8px;"></div>
       <div class="form-group" style="margin-top:10px;"><input type="number" id="p-disc" placeholder="Discount Price" required style="width:100%; padding:8px;"></div>
-      <div class="form-group" style="margin-top:10px;"><input type="text" id="p-img1" placeholder="Image URL 1 (Front Angle)" required style="width:100%; padding:8px;"></div>
-      <div class="form-group" style="margin-top:10px;"><input type="text" id="p-img2" placeholder="Image URL 2 (Back/Side Angle)" style="width:100%; padding:8px;"></div>
+      
+      <div class="form-group" style="margin-top:10px;">
+        <label>Product Photo 1 (Front View - Camera/Gallery):</label>
+        <input type="file" id="p-img1" accept="image/*" required style="width:100%; padding:8px;">
+      </div>
+      <div class="form-group" style="margin-top:10px;">
+        <label>Product Photo 2 (Side/Back View - Optional):</label>
+        <input type="file" id="p-img2" accept="image/*" style="width:100%; padding:8px;">
+      </div>
+
       <div class="form-group" style="margin-top:10px;"><textarea id="p-desc" placeholder="Product Description" style="width:100%; padding:8px;"></textarea></div>
       <button type="submit" class="submit-order-btn" style="margin-top:10px;">Add Product</button>
     </form>
@@ -97,23 +105,25 @@
 
     function addNewProduct(e) {
       e.preventDefault();
-      const name = document.getElementById('p-name').value;
-      const category = document.getElementById('p-cat').value;
-      const price = document.getElementById('p-price').value;
-      const discountPrice = document.getElementById('p-disc').value;
-      const desc = document.getElementById('p-desc').value;
-      
-      let images = [document.getElementById('p-img1').value];
-      let img2 = document.getElementById('p-img2').value;
-      if(img2) images.push(img2);
+      const formData = new FormData();
+      formData.append('name', document.getElementById('p-name').value);
+      formData.append('category', document.getElementById('p-cat').value);
+      formData.append('price', document.getElementById('p-price').value);
+      formData.append('discountPrice', document.getElementById('p-disc').value);
+      formData.append('description', document.getElementById('p-desc').value);
+
+      const img1 = document.getElementById('p-img1').files[0];
+      const img2 = document.getElementById('p-img2').files[0];
+
+      if(img1) formData.append('img1', img1);
+      if(img2) formData.append('img2', img2);
 
       fetch('/api/add-product', {
         method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ name, category, price, discountPrice, images, description: desc })
+        body: formData
       }).then(res => res.json()).then(data => {
         if(data.status === 'success') {
-          alert("Product added successfully!");
+          alert("Product added successfully with photo!");
           location.reload();
         }
       });
@@ -124,4 +134,5 @@
     }
   </script>
 </body>
-</html>
+      </html>
+      
